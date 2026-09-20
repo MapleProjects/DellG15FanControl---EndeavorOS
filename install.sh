@@ -117,6 +117,10 @@ exec /usr/bin/python3 "\$SCRIPT_DIR/g15_fan_control.py" "\$@"
 LAUNCHEREOF
 chmod +x "$LAUNCHER_SCRIPT"
 
+# Install application icon
+mkdir -p /usr/share/icons/hicolor/scalable/apps
+cp "$SCRIPT_DIR/dell_g15_fan_control/icons/app_icon.svg" /usr/share/icons/hicolor/scalable/apps/dell-g15-fan-control.svg
+
 DESKTOP_FILE="$USER_HOME/.local/share/applications/dell-g15-fan-control.desktop"
 mkdir -p "$(dirname "$DESKTOP_FILE")"
 
@@ -128,7 +132,7 @@ Name=Dell G15 Fan Control
 GenericName=Fan Control
 Comment=Control de perfiles térmicos para Dell G15 5511
 Exec=$LAUNCHER_SCRIPT
-Icon=utilities-system-monitor
+Icon=dell-g15-fan-control
 Terminal=false
 Categories=System;Settings;HardwareSettings;
 Keywords=fan;ventilador;dell;g15;thermal;termal;cooling;
@@ -205,6 +209,7 @@ echo -e "${YELLOW}Paso 7: Creando servicio systemd para resume...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 SERVICE_FILE="/etc/systemd/system/dell-g15-fan-resume.service"
+BOOT_SERVICE_FILE="/etc/systemd/system/dell-g15-fan-boot.service"
 
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
@@ -219,10 +224,25 @@ ExecStart=/usr/bin/python3 $SCRIPT_DIR/g15_fan_control.py --apply-saved-mode
 WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 EOF
 
+cat > "$BOOT_SERVICE_FILE" <<EOF
+[Unit]
+Description=Dell G15 Fan Control - Restore thermal profile at boot
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 $SCRIPT_DIR/g15_fan_control.py --apply-saved-mode
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
 systemctl enable dell-g15-fan-resume.service
+systemctl enable dell-g15-fan-boot.service
 
-echo -e "${GREEN}✓ Servicio systemd creado y habilitado${NC}"
+echo -e "${GREEN}✓ Servicios systemd de arranque y reanudación creados y habilitados${NC}"
 
 # Step 7: Create CLI symlink
 echo ""

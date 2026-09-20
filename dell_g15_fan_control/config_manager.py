@@ -17,8 +17,10 @@ class AppConfig:
     """Application configuration container."""
     # Thermal settings
     default_mode: str = "balanced"
-    mode_on_resume: str = "balanced"
+    mode_on_resume: str = "last"
     set_cpu_governor: bool = True
+    preserve_mode_on_exit: bool = True
+    restore_mode_on_startup: bool = True
     
     # UI settings
     start_minimized: bool = False
@@ -139,12 +141,12 @@ class ConfigManager:
                 # Create autostart directory if needed
                 self.AUTOSTART_DIR.mkdir(parents=True, exist_ok=True)
                 
-                # Create .desktop file
+                exec_cmd = f"/usr/bin/python3 {script_path} --minimized" if str(script_path).endswith(".py") else f"{script_path} --minimized"
                 desktop_content = f"""[Desktop Entry]
 Type=Application
 Name=Dell G15 Fan Control
 Comment=Control de ventiladores Dell G15
-Exec=/usr/bin/python3 {script_path} --minimized
+Exec={exec_cmd}
 Icon=utilities-system-monitor
 Terminal=false
 Categories=System;Settings;
@@ -208,6 +210,31 @@ WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibern
                 f"sudo tee {service_path} << 'EOF'\n{service_content}EOF",
                 "sudo systemctl daemon-reload",
                 "sudo systemctl enable dell-g15-fan-resume.service"
+            ]
+        }
+    
+    def create_systemd_boot_service(self, script_path: str) -> tuple:
+        """Create a systemd service file for early boot profile restoration."""
+        service_content = f"""[Unit]
+Description=Dell G15 Fan Control - Restore thermal profile at boot
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 {script_path} --apply-saved-mode
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+"""
+        service_path = "/etc/systemd/system/dell-g15-fan-boot.service"
+        return True, {
+            'content': service_content,
+            'path': service_path,
+            'install_commands': [
+                f"sudo tee {service_path} << 'EOF'\n{service_content}EOF",
+                "sudo systemctl daemon-reload",
+                "sudo systemctl enable dell-g15-fan-boot.service"
             ]
         }
     

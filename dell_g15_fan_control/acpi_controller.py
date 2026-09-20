@@ -308,6 +308,37 @@ class ACPIController:
         else:
             return False, False
     
+    def query_current_mode(self) -> Tuple[bool, Optional[str]]:
+        """
+        Query hardware for the current active thermal profile.
+        Returns:
+            Tuple of (success, mode_string: 'gmode' | 'performance' | 'quiet' | 'balanced')
+        """
+        command = f"{self.acpi_path} 0 0x14 {{0x0b, 0x00, 0x00, 0x00}}"
+        success, result = self._execute_acpi_call(command)
+        if not success:
+            return False, None
+        
+        result_clean = result.lower().strip()
+        if "0xab" in result_clean:
+            self._gmode_active = True
+            self._current_mode = ThermalMode.GMODE
+            return True, "gmode"
+        elif "0xa1" in result_clean:
+            self._gmode_active = False
+            self._current_mode = ThermalMode.PERFORMANCE
+            return True, "performance"
+        elif "0xa3" in result_clean:
+            self._gmode_active = False
+            self._current_mode = ThermalMode.QUIET
+            return True, "quiet"
+        elif "0xa0" in result_clean:
+            self._gmode_active = False
+            self._current_mode = ThermalMode.BALANCED
+            return True, "balanced"
+        
+        return True, result_clean
+    
     def set_cpu_governor(self, governor: str) -> Tuple[bool, str]:
         """
         Set the CPU frequency governor.
