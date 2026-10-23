@@ -173,7 +173,7 @@ def apply_saved_mode_cli() -> int:
         success, msg = controller.set_thermal_mode(ThermalMode.BALANCED)
     
     if config_mgr.get("set_cpu_governor", True) and success:
-        gov = "performance" if target_mode in ["gmode", "performance"] else "powersave"
+        gov = "performance" if target_mode == "performance" else "powersave"
         controller.set_cpu_governor(gov)
     
     print(f"Dell G15 Fan Control: Modo '{target_mode}' -> {'Éxito' if success else 'Fallo'}: {msg}")

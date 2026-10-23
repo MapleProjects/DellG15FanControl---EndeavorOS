@@ -243,10 +243,14 @@ class ACPIController:
         Returns:
             Tuple of (success, message)
         """
+        import time
         # First set thermal profile to G-Mode
         success1, msg1 = self.set_thermal_mode(ThermalMode.GMODE)
         if not success1:
             return False, msg1
+        
+        # Brief pause to allow EC firmware to register the profile transition
+        time.sleep(0.2)
         
         # Then enable G-Mode flag
         success2, msg2 = self._enable_gmode()
@@ -263,8 +267,11 @@ class ACPIController:
         Returns:
             Tuple of (success, message)
         """
+        import time
         # Disable G-Mode flag
         success1, msg1 = self._disable_gmode()
+        
+        time.sleep(0.2)
         
         # Set to balanced mode
         success2, msg2 = self.set_thermal_mode(ThermalMode.BALANCED)
@@ -356,6 +363,7 @@ class ACPIController:
             return False, f"Gobernador inválido. Opciones: {', '.join(valid_governors)}"
         
         try:
+            epp_val = "balance_performance" if governor == "powersave" else "performance"
             if os.geteuid() == 0:
                 # Running as root - direct write
                 cpu_dirs = Path("/sys/devices/system/cpu").glob("cpu[0-9]*")
@@ -364,11 +372,18 @@ class ACPIController:
                     if governor_path.exists():
                         with open(governor_path, 'w') as f:
                             f.write(governor)
+                    epp_path = cpu_dir / "cpufreq" / "energy_performance_preference"
+                    if epp_path.exists():
+                        with open(epp_path, 'w') as f:
+                            f.write(epp_val)
             else:
                 # Running as user - use sudo
+                cmd = (
+                    f'echo {governor} | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null; '
+                    f'echo {epp_val} | tee /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference > /dev/null'
+                )
                 result = subprocess.run(
-                    ['sudo', 'bash', '-c', 
-                     f'echo {governor} | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null'],
+                    ['sudo', 'bash', '-c', cmd],
                     capture_output=True,
                     text=True,
                     timeout=10

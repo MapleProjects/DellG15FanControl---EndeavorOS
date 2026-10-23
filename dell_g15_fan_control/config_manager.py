@@ -16,7 +16,7 @@ from typing import Optional
 class AppConfig:
     """Application configuration container."""
     # Thermal settings
-    default_mode: str = "balanced"
+    default_mode: str = "gmode"
     mode_on_resume: str = "last"
     set_cpu_governor: bool = True
     preserve_mode_on_exit: bool = True

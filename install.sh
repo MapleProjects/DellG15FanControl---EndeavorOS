@@ -227,15 +227,17 @@ EOF
 cat > "$BOOT_SERVICE_FILE" <<EOF
 [Unit]
 Description=Dell G15 Fan Control - Restore thermal profile at boot
-After=multi-user.target
+After=multi-user.target graphical.target
+Wants=graphical.target
 
 [Service]
 Type=oneshot
+ExecStartPre=/usr/bin/sleep 2
 ExecStart=/usr/bin/python3 $SCRIPT_DIR/g15_fan_control.py --apply-saved-mode
 RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
 EOF
 
 systemctl daemon-reload

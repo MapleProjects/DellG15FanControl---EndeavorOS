@@ -152,6 +152,7 @@ class MainWindow(QMainWindow):
         
         # Apply and verify hardware thermal profile on startup
         self._apply_startup_mode()
+        QTimer.singleShot(2500, self._verify_and_reapply_startup_mode)
         
         if start_minimized and self.config_manager.get("minimize_to_tray", True):
             self.hide()
@@ -576,7 +577,7 @@ class MainWindow(QMainWindow):
     
     def _apply_startup_mode(self) -> None:
         """Apply saved thermal mode to ACPI hardware at startup."""
-        saved_mode = self.config_manager.get("default_mode", "balanced")
+        saved_mode = self.config_manager.get("default_mode", "gmode")
         should_restore = self.config_manager.get("restore_mode_on_startup", True)
         
         # Query current hardware state
@@ -594,6 +595,15 @@ class MainWindow(QMainWindow):
         else:
             self._update_ui_mode(saved_mode)
             self.tray_icon.set_mode(saved_mode)
+    
+    def _verify_and_reapply_startup_mode(self) -> None:
+        """Verify that hardware thermal profile remained active after desktop startup."""
+        saved_mode = self.config_manager.get("default_mode", "gmode")
+        if not self.config_manager.get("restore_mode_on_startup", True) or not self._is_root:
+            return
+        success, hw_mode = self.acpi_controller.query_current_mode()
+        if not success or hw_mode != saved_mode:
+            self._set_mode(saved_mode, force=True, show_notification=False)
     
     def _update_ui_mode(self, mode: str) -> None:
         """Update buttons and header badge without calling ACPI."""
@@ -638,7 +648,7 @@ class MainWindow(QMainWindow):
                 
                 # CPU Governor
                 if self.chk_governor.isChecked():
-                    gov = "performance" if mode in ["gmode", "performance"] else "powersave"
+                    gov = "performance" if mode == "performance" else "powersave"
                     self.acpi_controller.set_cpu_governor(gov)
                 
                 # Notifications
